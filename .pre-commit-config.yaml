@@ -8,3 +8,11 @@ repos:
     rev: 6.1.0
     hooks:
       - id: flake8
+      
+  - repo: local
+    hooks:
+      - id: update-requirements
+        name: Freeze dependencies
+        entry: bash -c "pip freeze > requirements.txt && git add requirements.txt"
+        language: system
+        always_run: true
