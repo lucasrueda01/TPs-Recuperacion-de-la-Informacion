@@ -40,7 +40,7 @@ def procesar(texto, doc_id):
 
     texto = texto.lower()  # Convertir a minusculas
     texto = sacar_acentos(texto)
-    texto = re.sub(r"[^a-z\s]", "", texto)  # Eliminar caracteres especiales
+    texto = re.sub(r"[^a-zñ\s]", "", texto)  # Eliminar caracteres especiales
     tokens = texto.split()  # Tokenizar (En este caso separo por espacios)
 
     if eliminar_vacias:

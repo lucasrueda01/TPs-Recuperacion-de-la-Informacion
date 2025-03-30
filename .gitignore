@@ -1,4 +1,6 @@
 **/venv/
-collection_test
-RI-tknz-data
 *.txt
+*.json
+*.trec
+vaswani
+languageIdentificationData
