@@ -4,3 +4,4 @@
 *.trec
 vaswani
 languageIdentificationData
+!requirements.txt
