@@ -81,6 +81,7 @@ for query in queries:
     print(f"\n🔍 Query: {query}")
     r_tfidf = retr_tfidf.search(query)
     r_bm25 = retr_bm25.search(query)
+    print(r_tfidf.head(20))
 
     for k in [10, 25, 50]:
         coef = correlacion(r_tfidf, r_bm25, k)

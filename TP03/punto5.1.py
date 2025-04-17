@@ -1,16 +1,21 @@
 import math
+import os
+import shutil
 import nltk
-from nltk.corpus import abc, stopwords
+from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from collections import defaultdict, Counter
+from bs4 import BeautifulSoup
+import pyterrier as pt
 
 
+# ----------------Script-------------------------
 def preprocesar_documentos(documentos):
     all_tokens = []
     df = defaultdict(int)
 
     for doc in documentos:
-        tokens = doc.lower()
+        tokens = doc["text"].lower()
         tokens = word_tokenize(tokens)
         tokens = [
             t for t in tokens if t.isalnum() and t not in stopwords.words("english")
@@ -42,9 +47,10 @@ def calcular_tfidf(all_tokens, df, N):
 
 
 def vector_consulta(query, df, N):
+    stop_words = stopwords.words("english")
     tokens = query.lower()
     tokens = word_tokenize(tokens)
-    tokens = [t for t in tokens if t.isalnum() and t not in stopwords.words("english")]
+    tokens = [t for t in tokens if t.isalnum() and t not in stop_words]
     frecuencias_query = Counter(tokens)
     query_pesos = {}
     for termino, frecuencia in frecuencias_query.items():
@@ -79,22 +85,78 @@ def buscar(query, doc_pesos, df, N):
     return resultados
 
 
-nltk.download("abc")  # Corpus de ejemplo
+# -----------------Pyterrier---------------------
+def extraer_texto_html(html):
+    soup = BeautifulSoup(html, "html.parser")
+    return soup.get_text(separator=" ", strip=True)
+
+
+def cargar_wiki_small(ruta):
+    documentos = []
+    for root, _, files in os.walk(ruta):
+        for archivo in files:
+            if archivo.endswith(".html"):
+                ruta_completa = os.path.join(root, archivo)
+                with open(ruta_completa, encoding="utf-8") as f:
+                    html = f.read()
+                    texto = extraer_texto_html(html)
+                    documentos.append({"docno": archivo, "text": texto})
+    return documentos
+
+
+def indexar(documentos, path_indice):
+    index_path = os.path.abspath(path_indice)
+    indexador = pt.IterDictIndexer(index_path, meta={"docno": 100})
+    index_ref = indexador.index(documentos)
+    return index_ref
+
+
+PATH_DOCS = "wiki-small"
+documentos = cargar_wiki_small(PATH_DOCS)
+
+
+# -----------------Pyterrier---------------------
+PATH_INDEX = "indice-wiki-small"
+
+if os.path.exists(PATH_INDEX):
+    shutil.rmtree(PATH_INDEX)
+
+if not pt.java.started():
+    pt.java.init()
+
+index_ref = indexar(documentos, PATH_INDEX)
+retr_tfidf = pt.BatchRetrieve(index_ref, wmodel="TF_IDF")
+
+# ----------------Script-------------------------
 nltk.download("punkt")
 nltk.download("stopwords")
-documentos = [
-    " ".join(sent) for sent in abc.sents()
-]  # Uno las palabras para crear los documentos
 
 all_tokens, df, N = preprocesar_documentos(documentos)
 doc_pesos = calcular_tfidf(all_tokens, df, N)
 
-query = "government"
-resultados = buscar(query, doc_pesos, df, N)
+# ------------------ Comparacion múltiples queries ------------------------
+top = 10
+queries = [
+    "information retrieval",
+    "machine learning",
+    "climate change",
+    "world war",
+    "neural networks",
+]
+for query in queries:
+    print(f'Query: "{query}"\n')
 
-top = 20
-print(f"\nTop {top} resultados:")
-for i, score in resultados[:top]:
-    print(f"Doc {i} - Score: {score:.4f}")
-    print(documentos[i])
-    print("------")
+    resultados_terrier = retr_tfidf.search(query)
+    top_terrier = resultados_terrier.head(top)
+
+    resultados_script = buscar(query, doc_pesos, df, N)
+
+    print(f"Top {top} resultados con Script:")
+    for i, score in resultados_script[:top]:
+        print(f"Doc: {documentos[i]['docno']} - Score: {score:.4f}")
+
+    print(f"\nTop {top} resultados con PyTerrier:")
+    for index, row in top_terrier.iterrows():
+        print(f"Doc: {row['docno']} - Score: {row['score']:.4f}")
+
+    print("--------------------------------------------------------")
