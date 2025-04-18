@@ -2,8 +2,10 @@
 *.txt
 *.json
 *.trec
+*.png
 vaswani
 languageIdentificationData
 !requirements.txt
 wiki-small
 indice-wiki-small
+indice-vaswani

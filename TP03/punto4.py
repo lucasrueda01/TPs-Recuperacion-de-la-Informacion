@@ -4,8 +4,6 @@ from bs4 import BeautifulSoup
 import pyterrier as pt
 from scipy.stats import spearmanr
 
-# ----------- Preprocesamiento ------------
-
 
 def extraer_texto_html(html):
     soup = BeautifulSoup(html, "html.parser")
@@ -25,17 +23,11 @@ def cargar_wiki_small(ruta):
     return documentos
 
 
-# ----------- Indexación ------------
-
-
 def indexar(documentos, path_indice):
     index_path = os.path.abspath(path_indice)
     indexador = pt.IterDictIndexer(index_path, meta={"docno": 100})
     index_ref = indexador.index(documentos)
     return index_ref
-
-
-# ----------- Comparación de rankings ------------
 
 
 def correlacion(r1, r2, n):
@@ -46,11 +38,9 @@ def correlacion(r1, r2, n):
         return None
     ranks1 = [docs1.index(doc) for doc in comunes]
     ranks2 = [docs2.index(doc) for doc in comunes]
-    coef, _ = spearmanr(ranks1, ranks2)
+    coef, _ = spearmanr(ranks1, ranks2)  # Coeficiente de correlacion
     return coef
 
-
-# ----------- Configuración inicial ------------
 
 PATH_DOCS = "wiki-small"
 PATH_INDEX = "indice-wiki-small"
@@ -72,21 +62,33 @@ queries = [
     "machine learning",
     "climate change",
     "world war",
-    "neural networks",
+    "argentina",
 ]
 
-# ----------- Evaluación y salida ------------
+# -----------Comparacion------------
 
-for query in queries:
-    print(f"\n🔍 Query: {query}")
-    r_tfidf = retr_tfidf.search(query)
-    r_bm25 = retr_bm25.search(query)
-    print(r_tfidf.head(20))
+with open("resultados.txt", "w", encoding="utf-8") as f:
+    for query in queries:
+        f.write(f"Query: {query}\n")
 
-    for k in [10, 25, 50]:
-        coef = correlacion(r_tfidf, r_bm25, k)
-        print(
-            f"  📏 Correlación (top {k}): {coef:.4f}"
-            if coef is not None
-            else f"  ⚠️ Sin coincidencias en top {k}"
-        )
+        r_tfidf = retr_tfidf.search(query)
+        r_bm25 = retr_bm25.search(query)
+
+        f.write("TF-IDF:\n")
+        f.write(r_tfidf.head(10).to_string(index=False))
+        f.write("\n")
+
+        f.write("BM-25:\n")
+        f.write(r_bm25.head(10).to_string(index=False))
+        f.write("\n")
+
+        for n in [10, 25, 50]:
+            coef = correlacion(r_tfidf, r_bm25, n)
+            if coef is not None:
+                f.write(f"Correlacion (top {n}): {coef:.4f}\n")
+            else:
+                f.write(f"Sin coincidencias en top {n}\n")
+
+        f.write("---------------------------------------------\n")
+
+print("Resultados guardados en resultados.txt")

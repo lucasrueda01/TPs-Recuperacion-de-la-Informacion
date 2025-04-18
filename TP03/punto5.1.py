@@ -134,29 +134,31 @@ nltk.download("stopwords")
 all_tokens, df, N = preprocesar_documentos(documentos)
 doc_pesos = calcular_tfidf(all_tokens, df, N)
 
-# ------------------ Comparacion múltiples queries ------------------------
+# ------------------Comparacion------------------------
 top = 10
 queries = [
     "information retrieval",
     "machine learning",
     "climate change",
     "world war",
-    "neural networks",
+    "argentina",
 ]
-for query in queries:
-    print(f'Query: "{query}"\n')
 
-    resultados_terrier = retr_tfidf.search(query)
-    top_terrier = resultados_terrier.head(top)
+with open("resultados_comparacion.txt", "w", encoding="utf-8") as f:
+    for query in queries:
+        f.write(f'Query: "{query}"\n')
 
-    resultados_script = buscar(query, doc_pesos, df, N)
+        resultados_terrier = retr_tfidf.search(query)
+        top_terrier = resultados_terrier.head(top)
 
-    print(f"Top {top} resultados con Script:")
-    for i, score in resultados_script[:top]:
-        print(f"Doc: {documentos[i]['docno']} - Score: {score:.4f}")
+        resultados_script = buscar(query, doc_pesos, df, N)
 
-    print(f"\nTop {top} resultados con PyTerrier:")
-    for index, row in top_terrier.iterrows():
-        print(f"Doc: {row['docno']} - Score: {row['score']:.4f}")
+        f.write(f"Top {top} resultados con el script:\n")
+        for i, score in resultados_script[:top]:
+            f.write(f"Doc: {documentos[i]['docno']} - Score: {score:.4f}\n")
 
-    print("--------------------------------------------------------")
+        f.write(f"\nTop {top} resultados con PyTerrier:\n")
+        for index, row in top_terrier.iterrows():
+            f.write(f"Doc: {row['docno']} - Score: {row['score']:.4f}\n")
+
+        f.write("--------------------------------------------------------\n\n")
