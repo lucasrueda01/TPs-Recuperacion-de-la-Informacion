@@ -215,4 +215,6 @@ print(f"NDCG@10: {np.mean(ndcg10_scores):.4f}")
 precision_recall_interpolada(docnos, relevantes)
 
 df_metricas = pd.DataFrame(metricas_por_query)
+
+print("\nMetricas por query: ")
 print(df_metricas.to_string(index=False))
