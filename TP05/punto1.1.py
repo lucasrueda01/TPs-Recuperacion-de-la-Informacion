@@ -1,8 +1,6 @@
 import os
 import json
 import sys
-import time
-from matplotlib import pyplot as plt
 import nltk
 from bs4 import BeautifulSoup
 from nltk.tokenize import word_tokenize
@@ -22,10 +20,13 @@ def tokenizar(texto):
     return tokens
 
 
-def procesar_y_volcar_indice(ruta_corpus, n, carpeta_salida, frecuencias):
+def procesar_y_volcar_indice(
+    ruta_corpus, n, carpeta_salida, frecuencias, ruta_mapeo="doc_ids.json"
+):
     if not os.path.exists(carpeta_salida):
         os.makedirs(carpeta_salida)
 
+    doc_map = {}  # Mapa para almacenar el mapeo del doc_id a nombre de archivo
     doc_id = 0
     bloque_id = 0
 
@@ -44,6 +45,9 @@ def procesar_y_volcar_indice(ruta_corpus, n, carpeta_salida, frecuencias):
                     html = f.read()
                     texto = extraer_texto_html(html)
                     tokens = tokenizar(texto)
+
+                    # Guardar el mapeo del doc_id al nombre del archivo
+                    doc_map[str(doc_id)] = archivo
 
                     if frecuencias:
                         freqs = defaultdict(int)
@@ -71,6 +75,10 @@ def procesar_y_volcar_indice(ruta_corpus, n, carpeta_salida, frecuencias):
     if len(indice_parcial) > 0:
         guardar_indice_parcial(indice_parcial, bloque_id, carpeta_salida)
         print(f"Bloque {str(bloque_id)} restante terminado")
+
+    # Guardar el mapeo de doc_id a nombre de archivo
+    with open(ruta_mapeo, "w", encoding="utf-8") as f:
+        json.dump(doc_map, f)
 
 
 def guardar_indice_parcial(indice, bloque_id, carpeta_salida):
@@ -132,82 +140,44 @@ def merge_indices(directorio_indices, archivo_salida, frecuencias):
     return indice_final
 
 
-def histograma_posting_lists(indice_final):
-    tam_posting_lists = [len(postings) for postings in indice_final.values()]
-    plt.figure(figsize=(10, 6))
-    plt.hist(tam_posting_lists, bins=50, color="skyblue", edgecolor="black")
-    plt.title("Distribución de tamaños de Posting Lists")
-    plt.xlabel("Tamaño")
-    plt.ylabel("Frecuencia")
-    plt.yscale("log")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig("distribucion_posting_lists.png")
-    plt.show()
+def buscar_termino(indice, termino, doc_map_file="doc_ids.json"):
+    with open(doc_map_file, "r", encoding="utf-8") as f:
+        doc_map = json.load(f)
+    posting_completa = []
+    posting = indice[termino]
+    for doc_id, freq in posting:
+        nombre = doc_map.get(str(doc_id), "desconocido")
+        posting_completa.append(f"{nombre}:{doc_id}:{freq}")
 
-
-def calcular_tamanio_corpus(ruta_corpus):
-    tamanio_total = 0
-    for root, _, files in os.walk(ruta_corpus):
-        for archivo in files:
-            ruta_archivo = os.path.join(root, archivo)
-            if os.path.isfile(ruta_archivo):
-                tamanio_total += os.path.getsize(ruta_archivo)
-    return tamanio_total
+    return posting_completa
 
 
 nltk.download("punkt")
 nltk.download("stopwords")
 stop_words = set(stopwords.words("english"))
 
-ruta_corpus = "wiki-large"
+ruta_corpus = "wiki-small"
 carpeta_indices = "indices_parciales"
 indice_final = "indice"
 
-if len(sys.argv) < 2:
-    print("Uso: python punto1.py <N> [frecuencias]")
-    print("N: Tamaño del bloque de documentos")
-    print("frecuencias: (opcional) True para incluir frecuencias, Omitir para no")
+if len(sys.argv) != 3:
+    print("Uso: python buscar_termino.py <n> <termino>")
     sys.exit(1)
 
 n = int(sys.argv[1])
-if len(sys.argv) == 3:
-    frecuencias = bool(sys.argv[2])
-else:
-    frecuencias = False
+termino = sys.argv[2].lower()
 
-print(f"Procesando con N={n} y frecuencias={frecuencias}")
+print(f"Procesando con N={n}")
 
-inicio = time.time()
-procesar_y_volcar_indice(ruta_corpus, n, carpeta_indices, frecuencias)
-fin = time.time()
-t_indexacion = round(fin - inicio, 4)
+# Para este ejercicio creo un archivo docs_ids.json para mapear el doc_id generado durante la indexacion al nombre de archivo y lo uso para la salida
+# En este caso el indice entero se va a componer de ambos archivos: el indice final y el mapeo de las doc_ids
 
-inicio = time.time()
-resultado = merge_indices(carpeta_indices, indice_final, frecuencias)
-fin = time.time()
-t_merge = round(fin - inicio, 4)
+procesar_y_volcar_indice(ruta_corpus, n, carpeta_indices, True)
 
+resultado = merge_indices(carpeta_indices, indice_final, True)
 
-tamanio_indice = os.path.getsize(indice_final + ".json")
-tamanio_docs = calcular_tamanio_corpus(ruta_corpus)
-print(tamanio_indice)
-print(tamanio_docs)
+posting_list = buscar_termino(resultado, termino)
 
-overhead = (tamanio_indice - tamanio_docs) / (tamanio_docs * 100)
-
-histograma_posting_lists(resultado)
-
-contabilidad = {
-    "Tamaño del bloque de documentos (N)": n,
-    "Frecuencias": "Si" if frecuencias else "No",
-    "Tamaño del índice (mb)": tamanio_indice / (1024 * 1024),
-    "Tamaño del corpus (mb)": tamanio_docs / (1024 * 1024),
-    "Tiempo de indexacion": t_indexacion,
-    "Tiempo de merge": t_merge,
-    "Overhead": overhead,
-}
-
-print("Contabilidad:")
-for clave, valor in contabilidad.items():
-    print(f"{clave}: {valor}")
+print(f"Posting list para '{termino}':")
+for entry in posting_list:
+    print(entry)
