@@ -11,3 +11,5 @@ indice-wiki-small
 indice-vaswani
 wiki-large
 indices_parciales
+*.gamma
+*.vb
